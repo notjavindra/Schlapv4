@@ -1,6 +1,12 @@
 -- Load WindUI
 local Version = "1.6.31"
-local WindUI = loadstring(game:HttpGet("https://github.com/Footagesus/WindUI/releases/download/" .. Version .. "/main.lua"))()
+local success, WindUI = pcall(function()
+    return loadstring(game:HttpGet("https://github.com/Footagesus/WindUI/releases/download/" .. Version .. "/main.lua"))()
+end)
+if not success then
+    warn("Failed to load WindUI")
+    return
+end
 
 -- Services
 local Players = game:GetService("Players")
@@ -24,10 +30,7 @@ local LastToolWarningTime, ToolWarningCooldown = 0, 5
 local ESPConnections = {}
 
 -- Schlap Tools
-local SchlapTools = {
-    "Basic","Charged","Medic","Toxic","Jester","Dracula",
-    "Stone","Gravity","Gatling","Velocity","Lava","Tsunami","Godly","Midas"
-}
+local SchlapTools = {"Basic","Charged","Medic","Toxic","Jester","Dracula","Stone","Gravity","Gatling","Velocity","Lava","Tsunami","Godly","Midas"}
 
 -- WindUI Window
 local Window = WindUI:CreateWindow({
@@ -68,12 +71,8 @@ mainTab:Toggle({
     Default = false,
     Callback = function(state)
         AutoSlapAuraEnabled = state
-        if state then
-            AuraTargetIndex = 1
-            showNotification("Auto Slap Aura", "⚠️ Aura enabled!", 5)
-        else
-            showNotification("Auto Slap Aura", "Disabled")
-        end
+        AuraTargetIndex = 1
+        showNotification("Auto Slap Aura", state and "⚠️ Aura enabled!" or "Disabled", 5)
     end
 })
 
@@ -87,34 +86,26 @@ mainTab:Toggle({
         if state then
             if not AntiVoidPart then
                 AntiVoidPart = Instance.new("Part")
-                AntiVoidPart.Size = Vector3.new(5000, 1, 5000)
-                AntiVoidPart.Position = Vector3.new(0, -200, 0)
+                AntiVoidPart.Size = Vector3.new(5000,1,5000)
+                AntiVoidPart.Position = Vector3.new(0,-200,0)
                 AntiVoidPart.Anchored = true
                 AntiVoidPart.Transparency = 1
                 AntiVoidPart.CanCollide = true
                 AntiVoidPart.Parent = Workspace
                 AntiVoidPart.Touched:Connect(function(hit)
                     local player = Players:GetPlayerFromCharacter(hit.Parent)
-                    if player == LocalPlayer then
-                        local char = player.Character
-                        if char and char:FindFirstChild("HumanoidRootPart") then
-                            local currentTime = tick()
-                            if currentTime - LastTeleportTime >= TeleportDebounce then
-                                LastTeleportTime = currentTime
-                                char.HumanoidRootPart.CFrame = CFrame.new(Vector3.new(-21.19, -49.709, 331.93))
-                                showNotification("AntiVoid", "Teleported to safe position!")
-                            end
+                    if player == LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+                        if tick() - LastTeleportTime >= TeleportDebounce then
+                            LastTeleportTime = tick()
+                            player.Character.HumanoidRootPart.CFrame = CFrame.new(Vector3.new(-21.19, -49.709, 331.93))
+                            showNotification("AntiVoid","Teleported to safe position!")
                         end
                     end
                 end)
-                showNotification("AntiVoid", "Enabled")
+                showNotification("AntiVoid","Enabled")
             end
         else
-            if AntiVoidPart then
-                AntiVoidPart:Destroy()
-                AntiVoidPart = nil
-                showNotification("AntiVoid", "Disabled")
-            end
+            if AntiVoidPart then AntiVoidPart:Destroy(); AntiVoidPart = nil; showNotification("AntiVoid","Disabled") end
         end
     end
 })
@@ -138,8 +129,8 @@ local function createPlayerESP(player)
     if ESPConnections[player.Name] and ESPConnections[player.Name].Players then return end
     local espBox = Instance.new("BoxHandleAdornment")
     espBox.Name = "PlayerESP_" .. player.Name
-    espBox.Size = Vector3.new(4, 6, 1)
-    espBox.Color3 = Color3.fromRGB(0, 162, 255)
+    espBox.Size = Vector3.new(4,6,1)
+    espBox.Color3 = Color3.fromRGB(0,162,255)
     espBox.Transparency = 0.7
     espBox.AlwaysOnTop = true
     espBox.Adornee = player.Character.HumanoidRootPart
@@ -153,23 +144,21 @@ local function createUsersESP()
         if obj:IsA("Model") and obj:FindFirstChild("HumanoidRootPart") and obj:FindFirstChild("Humanoid") then
             local isPlayer = false
             for _, p in pairs(Players:GetPlayers()) do
-                if p.Character == obj then
-                    isPlayer = true
-                    break
-                end
+                if p.Character == obj then isPlayer = true break end
             end
             if not isPlayer then
-                if ESPConnections[obj.Name] and ESPConnections[obj.Name].Users then continue end
-                local espBox = Instance.new("BoxHandleAdornment")
-                espBox.Name = "UserESP_" .. obj.Name
-                espBox.Size = Vector3.new(4, 6, 1)
-                espBox.Color3 = Color3.fromRGB(255, 0, 0)
-                espBox.Transparency = 0.7
-                espBox.AlwaysOnTop = true
-                espBox.Adornee = obj.HumanoidRootPart
-                espBox.Parent = obj.HumanoidRootPart
-                ESPConnections[obj.Name] = ESPConnections[obj.Name] or {}
-                ESPConnections[obj.Name].Users = espBox
+                if not (ESPConnections[obj.Name] and ESPConnections[obj.Name].Users) then
+                    local espBox = Instance.new("BoxHandleAdornment")
+                    espBox.Name = "UserESP_" .. obj.Name
+                    espBox.Size = Vector3.new(4,6,1)
+                    espBox.Color3 = Color3.fromRGB(255,0,0)
+                    espBox.Transparency = 0.7
+                    espBox.AlwaysOnTop = true
+                    espBox.Adornee = obj.HumanoidRootPart
+                    espBox.Parent = obj.HumanoidRootPart
+                    ESPConnections[obj.Name] = ESPConnections[obj.Name] or {}
+                    ESPConnections[obj.Name].Users = espBox
+                end
             end
         end
     end
@@ -177,27 +166,27 @@ end
 
 local function removeAllESP(type)
     for _, con in pairs(ESPConnections) do
-        if con[type] then
-            con[type]:Destroy()
-            con[type] = nil
-        end
+        if con[type] then con[type]:Destroy(); con[type]=nil end
     end
 end
 
-visualTab:Toggle({Title = "Players ESP (Blue)", Description = "Shows ESP for all players", Default = false,
-    Callback = function(state)
+visualTab:Toggle({
+    Title="Players ESP (Blue)",
+    Description="Shows ESP for all players",
+    Default=false,
+    Callback=function(state)
         PlayersESPEnabled = state
-        if state then
-            for _, player in pairs(Players:GetPlayers()) do
-                if player ~= LocalPlayer then createPlayerESP(player) end
-            end
+        if state then for _,p in pairs(Players:GetPlayers()) do if p~=LocalPlayer then createPlayerESP(p) end end
         else removeAllESP("Players") end
         showNotification("Players ESP", state and "Enabled" or "Disabled")
     end
 })
 
-visualTab:Toggle({Title = "Users ESP (Red)", Description = "Shows ESP for NPCs/Bots", Default = false,
-    Callback = function(state)
+visualTab:Toggle({
+    Title="Users ESP (Red)",
+    Description="Shows ESP for NPCs/Bots",
+    Default=false,
+    Callback=function(state)
         UsersESPEnabled = state
         if state then createUsersESP() else removeAllESP("Users") end
         showNotification("Users ESP", state and "Enabled" or "Disabled")
@@ -205,22 +194,38 @@ visualTab:Toggle({Title = "Users ESP (Red)", Description = "Shows ESP for NPCs/B
 })
 
 -- === MISC TAB ===
-local miscTab = Window:Tab({Title = "Misc", Icon = "rbxassetid://4483345998"})
+local miscTab = Window:Tab({Title="Misc",Icon="rbxassetid://4483345998"})
 
-miscTab:Slider({Title = "WalkSpeed", Description = "Adjust your walking speed", Default = 16, Min = 16, Max = 200, Rounding = 0,
-    Callback = function(value) WalkSpeedValue = value; SpeedEnabled = true; showNotification("WalkSpeed", "Set to " .. value) end
+miscTab:Slider({
+    Title="WalkSpeed",
+    Description="Adjust your walking speed",
+    Default=16,
+    Min=16,
+    Max=200,
+    Rounding=0,
+    Callback=function(value) WalkSpeedValue=value; SpeedEnabled=true; showNotification("WalkSpeed","Set to "..value) end
 })
 
-miscTab:Slider({Title = "JumpPower", Description = "Adjust your jump power", Default = 50, Min = 50, Max = 200, Rounding = 0,
-    Callback = function(value) JumpPowerValue = value; SpeedEnabled = true; showNotification("JumpPower", "Set to " .. value) end
+miscTab:Slider({
+    Title="JumpPower",
+    Description="Adjust your jump power",
+    Default=50,
+    Min=50,
+    Max=200,
+    Rounding=0,
+    Callback=function(value) JumpPowerValue=value; SpeedEnabled=true; showNotification("JumpPower","Set to "..value) end
 })
 
-miscTab:Button({Title = "Rejoin", Description = "Rejoin current server",
-    Callback = function() TeleportService:TeleportToPlaceInstance(game.PlaceId, game.JobId, LocalPlayer) showNotification("Rejoin", "Attempting to rejoin...") end
+miscTab:Button({
+    Title="Rejoin",
+    Description="Rejoin current server",
+    Callback=function() TeleportService:TeleportToPlaceInstance(game.PlaceId, game.JobId, LocalPlayer); showNotification("Rejoin","Attempting to rejoin...") end
 })
 
-miscTab:Button({Title = "Server Hop", Description = "Join a different server",
-    Callback = function()
+miscTab:Button({
+    Title="Server Hop",
+    Description="Join a different server",
+    Callback=function()
         local Servers = {}
         local Success, Response = pcall(function()
             return game:HttpGet("https://games.roblox.com/v1/games/"..game.PlaceId.."/servers/Public?sortOrder=Asc&limit=100")
@@ -228,152 +233,104 @@ miscTab:Button({Title = "Server Hop", Description = "Join a different server",
         if Success then
             local Data = HttpService:JSONDecode(Response)
             for _, server in pairs(Data.data) do
-                if server.playing < server.maxPlayers and server.id ~= game.JobId then
-                    table.insert(Servers, server.id)
-                end
+                if server.playing<server.maxPlayers and server.id~=game.JobId then table.insert(Servers,server.id) end
             end
-            if #Servers > 0 then
-                TeleportService:TeleportToPlaceInstance(game.PlaceId, Servers[math.random(#Servers)], LocalPlayer)
-                showNotification("Server Hop", "Hopping...")
-            else
-                showNotification("Server Hop", "No available servers found.")
-            end
+            if #Servers>0 then
+                TeleportService:TeleportToPlaceInstance(game.PlaceId,Servers[math.random(#Servers)],LocalPlayer)
+                showNotification("Server Hop","Hopping...")
+            else showNotification("Server Hop","No available servers found.") end
+        else showNotification("Server Hop
         else
-            showNotification("Server Hop", "Failed to fetch server list.")
+            showNotification("Server Hop","No available servers found.")
         end
     end
 })
 
-miscTab:Toggle({Title = "Spin Bot", Description = "Makes your character spin", Default = false,
-    Callback = function(state) SpinBotEnabled = state; showNotification("Spin Bot", state and "Enabled" or "Disabled") end
+miscTab:Button({
+    Title = "Copy Discord",
+    Description = "Copies Discord invite link",
+    Callback = function()
+        setclipboard("https://discord.gg/merquryhub")
+        showNotification("Discord","Copied invite link to clipboard!",5)
+    end
 })
 
--- === RUN SERVICE ===
-RunService.RenderStepped:Connect(function()
-    if SpeedEnabled and Humanoid then
+-- === LOOP HANDLERS ===
+RunService.Heartbeat:Connect(function()
+    if SpeedEnabled and Character and Humanoid then
         Humanoid.WalkSpeed = WalkSpeedValue
         Humanoid.JumpPower = JumpPowerValue
-    end
-
-    local function findSchlapTool()
-        for _, name in pairs(SchlapTools) do
-            local tool = LocalPlayer.Backpack:FindFirstChild(name) or Character:FindFirstChild(name)
-            if tool then return tool, name end
-        end
-        return nil, nil
-    end
-
-    local function showToolWarning()
-        if tick() - LastToolWarningTime >= ToolWarningCooldown then
-            LastToolWarningTime = tick()
-            showNotification("⚠️ No Schlap Tool", table.concat(SchlapTools, ", "), 6)
-        end
     end
 
     -- Auto Slap
-    if AutoSlapEnabled and not AutoSlapAuraEnabled then
-        if tick() - LastSlapTime >= SlapSpeed then
-            LastSlapTime = tick()
-            for _, player in pairs(Players:GetPlayers()) do
-                if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-                    local distance = (Character.HumanoidRootPart.Position - player.Character.HumanoidRootPart.Position).Magnitude
-                    if distance <= 10 then
-                        local tool, toolName = findSchlapTool()
-                        if tool and Humanoid and Humanoid.Health > 0 and Humanoid:GetState() ~= Enum.HumanoidStateType.Dead then
-                            if tool.Parent ~= Character then Humanoid:EquipTool(tool); task.wait(0.3) end
-                            if tool.Parent == Character then pcall(function() tool:Activate() end) end
-                        else
-                            showToolWarning()
-                        end
-                        break
+    if AutoSlapEnabled and tick() - LastSlapTime >= SlapSpeed then
+        LastSlapTime = tick()
+        for _, player in pairs(Players:GetPlayers()) do
+            if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+                local dist = (player.Character.HumanoidRootPart.Position - Character.HumanoidRootPart.Position).magnitude
+                if dist < 25 then
+                    local tool = Character:FindFirstChildOfClass("Tool")
+                    if tool and table.find(SchlapTools, tool.Name) then
+                        tool:Activate()
                     end
                 end
             end
         end
     end
 
-    -- Auto Slap Aura
-    if AutoSlapAuraEnabled and Character:FindFirstChild("HumanoidRootPart") then
-        if tick() - LastAuraTime >= AuraSwitchDelay then
-            LastAuraTime = tick()
-            local players = {}
-            for _, player in pairs(Players:GetPlayers()) do
-                if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-                    table.insert(players, player)
-                end
-            end
-            if #players > 0 then
-                if AuraTargetIndex > #players then AuraTargetIndex = 1 end
-                local target = players[AuraTargetIndex]
-                if target.Character and target.Character:FindFirstChild("HumanoidRootPart") then
-                    Character.HumanoidRootPart.CFrame = CFrame.new(target.Character.HumanoidRootPart.Position + Vector3.new(2,0,0))
-                    local tool, toolName = findSchlapTool()
-                    if tool and Humanoid.Health > 0 then
-                        if tool.Parent ~= Character then Humanoid:EquipTool(tool); task.wait(0.1) end
-                        if tool.Parent == Character then pcall(function() tool:Activate() end) end
-                    else
-                        showToolWarning()
+    -- Auto Slap Aura (teleporting between players)
+    if AutoSlapAuraEnabled and tick() - LastAuraTime >= AuraSwitchDelay then
+        LastAuraTime = tick()
+        local allPlayers = Players:GetPlayers()
+        if #allPlayers > 1 then
+            AuraTargetIndex = AuraTargetIndex + 1
+            if AuraTargetIndex > #allPlayers then AuraTargetIndex = 1 end
+            local target = allPlayers[AuraTargetIndex]
+            if target and target ~= LocalPlayer and target.Character and target.Character:FindFirstChild("HumanoidRootPart") then
+                if Character and Character:FindFirstChild("HumanoidRootPart") then
+                    Character.HumanoidRootPart.CFrame = target.Character.HumanoidRootPart.CFrame * CFrame.new(0,0,2)
+                    local tool = Character:FindFirstChildOfClass("Tool")
+                    if tool and table.find(SchlapTools, tool.Name) then
+                        tool:Activate()
                     end
-                    AuraTargetIndex += 1
                 end
             end
         end
-    end
-
-    -- Spin Bot
-    if SpinBotEnabled and Character:FindFirstChild("HumanoidRootPart") then
-        Character.HumanoidRootPart.CFrame *= CFrame.Angles(0, math.rad(15), 0)
     end
 
     -- AntiRagdoll
-    if AntiRagdollEnabled and Humanoid then
-        if Humanoid:GetState() == Enum.HumanoidStateType.Physics then
-            Humanoid:ChangeState(Enum.HumanoidStateType.Running)
-        end
-        Humanoid.PlatformStand = false
-    end
-
-    -- Update ESP
-    if PlayersESPEnabled then
-        for _, player in pairs(Players:GetPlayers()) do
-            if player ~= LocalPlayer and player.Character and not (ESPConnections[player.Name] and ESPConnections[player.Name].Players) then
-                createPlayerESP(player)
+    if AntiRagdollEnabled and Character then
+        for _,v in pairs(Character:GetChildren()) do
+            if v:IsA("BodyVelocity") or v:IsA("BodyGyro") then
+                v:Destroy()
             end
         end
     end
-    if UsersESPEnabled then createUsersESP() end
-end)
 
--- Player Added
-Players.PlayerAdded:Connect(function(player)
+    -- ESP
     if PlayersESPEnabled then
-        player.CharacterAdded:Connect(function()
-            task.wait(1)
-            createPlayerESP(player)
-        end)
-    end
-end)
-
--- Player Removing
-Players.PlayerRemoving:Connect(function(player)
-    if ESPConnections[player.Name] then
-        if ESPConnections[player.Name].Players then ESPConnections[player.Name].Players:Destroy() end
-        ESPConnections[player.Name] = nil
-    end
-end)
-
--- Character Respawn
-LocalPlayer.CharacterAdded:Connect(function(newCharacter)
-    Character = newCharacter
-    Humanoid = newCharacter:WaitForChild("Humanoid")
-    if SpeedEnabled then
-        Humanoid.WalkSpeed = WalkSpeedValue
-        Humanoid.JumpPower = JumpPowerValue
-    end
-    if AntiRagdollEnabled then
-        if Humanoid:GetState() == Enum.HumanoidStateType.Physics then
-            Humanoid:ChangeState(Enum.HumanoidStateType.Running)
+        for _, player in pairs(Players:GetPlayers()) do
+            if player ~= LocalPlayer then createPlayerESP(player) end
         end
-        Humanoid.PlatformStand = false
+    end
+    if UsersESPEnabled then
+        createUsersESP()
     end
 end)
+
+-- SpinBot
+RunService.RenderStepped:Connect(function()
+    if SpinBotEnabled and Character and Character:FindFirstChild("HumanoidRootPart") then
+        Character.HumanoidRootPart.CFrame = Character.HumanoidRootPart.CFrame * CFrame.Angles(0,math.rad(15),0)
+    end
+end)
+
+-- Character respawn handling
+LocalPlayer.CharacterAdded:Connect(function(char)
+    Character = char
+    Humanoid = char:WaitForChild("Humanoid")
+end)
+
+-- UI init
+Window:SelectTab(1)
+showNotification("Merqury Hub","Loaded successfully!",5)
