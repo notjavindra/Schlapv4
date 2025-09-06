@@ -1,336 +1,119 @@
--- Load WindUI
+-- ✅ Full Merqury Hub Script (WindUI)
+
 local Version = "1.6.31"
 local success, WindUI = pcall(function()
-    return loadstring(game:HttpGet("https://github.com/Footagesus/WindUI/releases/download/" .. Version .. "/main.lua"))()
+    return loadstring(game:HttpGet("https://github.com/Footagesus/WindUI/releases/download/"..Version.."/main.lua"))()
 end)
-if not success then
-    warn("Failed to load WindUI")
-    return
-end
+if not success then return end
 
--- Services
-local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
-local TeleportService = game:GetService("TeleportService")
-local HttpService = game:GetService("HttpService")
-local Workspace = game:GetService("Workspace")
+local Players, RunService, TeleportService, HttpService, Workspace =
+    game:GetService("Players"), game:GetService("RunService"),
+    game:GetService("TeleportService"), game:GetService("HttpService"),
+    game:GetService("Workspace")
+
 local LocalPlayer = Players.LocalPlayer
 local Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
 local Humanoid = Character:WaitForChild("Humanoid")
 
--- Variables
+-- Vars
 local WalkSpeedValue, JumpPowerValue = 16, 50
-local SpeedEnabled, AutoSlapEnabled, AutoSlapAuraEnabled, SpinBotEnabled = false, false, false, false
-local AntiVoidEnabled, AntiRagdollEnabled, PlayersESPEnabled, UsersESPEnabled = false, false, false, false
-local AntiVoidPart
-local SlapSpeed, LastSlapTime = 0.3, 0
-local LastTeleportTime, TeleportDebounce = 0, 1
-local AuraTargetIndex, LastAuraTime, AuraSwitchDelay = 1, 0, 2
-local LastToolWarningTime, ToolWarningCooldown = 0, 5
-local ESPConnections = {}
-
--- Schlap Tools
+local SpeedEnabled, AutoSlapEnabled, AutoSlapAuraEnabled, AntiVoidEnabled, AntiRagdollEnabled = false,false,false,false,false
+local PlayersESPEnabled, UsersESPEnabled, SpinBotEnabled = false,false,false
+local SlapSpeed, LastSlapTime, AuraTargetIndex, LastAuraTime = 0.3, 0, 1, 0
+local AuraSwitchDelay, LastTeleportTime, TeleportDebounce = 2, 0, 1
+local AntiVoidPart, ESPConnections = nil, {}
 local SchlapTools = {"Basic","Charged","Medic","Toxic","Jester","Dracula","Stone","Gravity","Gatling","Velocity","Lava","Tsunami","Godly","Midas"}
 
--- WindUI Window
-local Window = WindUI:CreateWindow({
-    Title = "Schlap | Merqury Hub",
-    Icon = "rbxassetid://4483345998",
-    Author = "Merqury Hub",
-    Folder = "SchlapConfig",
-    Size = UDim2.fromOffset(580, 460),
-    KeySystem = {Key = "", Note = "The key is nothing", URL = "https://example.com", SaveKey = true},
-    Transparent = true,
-    Theme = "Dark",
-    SideBarWidth = 170
-})
+-- Window
+local Window = WindUI:CreateWindow({Title="Schlap | Merqury Hub", Icon="rbxassetid://4483345998", Author="Merqury Hub", Size=UDim2.fromOffset(580,460), Theme="Dark"})
+local function showNotification(t,c,d) WindUI:Notify({Title=t,Content=c,Duration=d or 3}) end
 
--- Notification helper
-local function showNotification(title, content, duration)
-    WindUI:Notify({Title = title, Content = content, Duration = duration or 3})
-end
+-- Tabs
+local mainTab = Window:Tab({Title="Main"})
+local visualTab = Window:Tab({Title="Visual"})
+local miscTab = Window:Tab({Title="Misc"})
 
--- === MAIN TAB ===
-local mainTab = Window:Tab({Title = "Main", Icon = "rbxassetid://4483345998"})
-
--- Auto Slap
-mainTab:Toggle({
-    Title = "Auto Slap",
-    Description = "Automatically slaps nearby players",
-    Default = false,
-    Callback = function(state)
-        AutoSlapEnabled = state
-        showNotification("Auto Slap", state and "Enabled" or "Disabled")
-    end
-})
-
--- Auto Slap Aura
-mainTab:Toggle({
-    Title = "Auto Slap Aura (Not Recommended)",
-    Description = "Teleports to players and slaps them",
-    Default = false,
-    Callback = function(state)
-        AutoSlapAuraEnabled = state
-        AuraTargetIndex = 1
-        showNotification("Auto Slap Aura", state and "⚠️ Aura enabled!" or "Disabled", 5)
-    end
-})
-
--- AntiVoid
-mainTab:Toggle({
-    Title = "Antivoid",
-    Description = "Prevents falling into the void",
-    Default = false,
-    Callback = function(state)
-        AntiVoidEnabled = state
-        if state then
-            if not AntiVoidPart then
-                AntiVoidPart = Instance.new("Part")
-                AntiVoidPart.Size = Vector3.new(5000,1,5000)
-                AntiVoidPart.Position = Vector3.new(0,-200,0)
-                AntiVoidPart.Anchored = true
-                AntiVoidPart.Transparency = 1
-                AntiVoidPart.CanCollide = true
-                AntiVoidPart.Parent = Workspace
-                AntiVoidPart.Touched:Connect(function(hit)
-                    local player = Players:GetPlayerFromCharacter(hit.Parent)
-                    if player == LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-                        if tick() - LastTeleportTime >= TeleportDebounce then
-                            LastTeleportTime = tick()
-                            player.Character.HumanoidRootPart.CFrame = CFrame.new(Vector3.new(-21.19, -49.709, 331.93))
-                            showNotification("AntiVoid","Teleported to safe position!")
-                        end
-                    end
-                end)
-                showNotification("AntiVoid","Enabled")
+-- Toggles
+mainTab:Toggle({Title="Auto Slap",Default=false,Callback=function(s) AutoSlapEnabled=s end})
+mainTab:Toggle({Title="Auto Slap Aura (⚠️)",Default=false,Callback=function(s) AutoSlapAuraEnabled=s AuraTargetIndex=1 end})
+mainTab:Toggle({Title="Antivoid",Default=false,Callback=function(s)
+    AntiVoidEnabled=s
+    if s then
+        AntiVoidPart=Instance.new("Part")
+        AntiVoidPart.Size=Vector3.new(5000,1,5000)
+        AntiVoidPart.Position=Vector3.new(0,-200,0)
+        AntiVoidPart.Anchored=true; AntiVoidPart.Transparency=1; AntiVoidPart.CanCollide=true
+        AntiVoidPart.Parent=Workspace
+        AntiVoidPart.Touched:Connect(function(hit)
+            local p=Players:GetPlayerFromCharacter(hit.Parent)
+            if p==LocalPlayer and tick()-LastTeleportTime>=TeleportDebounce then
+                LastTeleportTime=tick()
+                p.Character.HumanoidRootPart.CFrame=CFrame.new(Vector3.new(-21.19,-49.709,331.93))
             end
-        else
-            if AntiVoidPart then AntiVoidPart:Destroy(); AntiVoidPart = nil; showNotification("AntiVoid","Disabled") end
-        end
-    end
-})
-
--- AntiRagdoll
-mainTab:Toggle({
-    Title = "AntiRagdoll",
-    Description = "Prevents ragdoll physics",
-    Default = false,
-    Callback = function(state)
-        AntiRagdollEnabled = state
-        showNotification("AntiRagdoll", state and "Enabled" or "Disabled")
-    end
-})
-
--- === VISUAL TAB ===
-local visualTab = Window:Tab({Title = "Visual", Icon = "rbxassetid://4483345998"})
-
-local function createPlayerESP(player)
-    if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then return end
-    if ESPConnections[player.Name] and ESPConnections[player.Name].Players then return end
-    local espBox = Instance.new("BoxHandleAdornment")
-    espBox.Name = "PlayerESP_" .. player.Name
-    espBox.Size = Vector3.new(4,6,1)
-    espBox.Color3 = Color3.fromRGB(0,162,255)
-    espBox.Transparency = 0.7
-    espBox.AlwaysOnTop = true
-    espBox.Adornee = player.Character.HumanoidRootPart
-    espBox.Parent = player.Character.HumanoidRootPart
-    ESPConnections[player.Name] = ESPConnections[player.Name] or {}
-    ESPConnections[player.Name].Players = espBox
-end
-
-local function createUsersESP()
-    for _, obj in pairs(Workspace:GetDescendants()) do
-        if obj:IsA("Model") and obj:FindFirstChild("HumanoidRootPart") and obj:FindFirstChild("Humanoid") then
-            local isPlayer = false
-            for _, p in pairs(Players:GetPlayers()) do
-                if p.Character == obj then isPlayer = true break end
-            end
-            if not isPlayer then
-                if not (ESPConnections[obj.Name] and ESPConnections[obj.Name].Users) then
-                    local espBox = Instance.new("BoxHandleAdornment")
-                    espBox.Name = "UserESP_" .. obj.Name
-                    espBox.Size = Vector3.new(4,6,1)
-                    espBox.Color3 = Color3.fromRGB(255,0,0)
-                    espBox.Transparency = 0.7
-                    espBox.AlwaysOnTop = true
-                    espBox.Adornee = obj.HumanoidRootPart
-                    espBox.Parent = obj.HumanoidRootPart
-                    ESPConnections[obj.Name] = ESPConnections[obj.Name] or {}
-                    ESPConnections[obj.Name].Users = espBox
-                end
-            end
-        end
-    end
-end
-
-local function removeAllESP(type)
-    for _, con in pairs(ESPConnections) do
-        if con[type] then con[type]:Destroy(); con[type]=nil end
-    end
-end
-
-visualTab:Toggle({
-    Title="Players ESP (Blue)",
-    Description="Shows ESP for all players",
-    Default=false,
-    Callback=function(state)
-        PlayersESPEnabled = state
-        if state then for _,p in pairs(Players:GetPlayers()) do if p~=LocalPlayer then createPlayerESP(p) end end
-        else removeAllESP("Players") end
-        showNotification("Players ESP", state and "Enabled" or "Disabled")
-    end
-})
-
-visualTab:Toggle({
-    Title="Users ESP (Red)",
-    Description="Shows ESP for NPCs/Bots",
-    Default=false,
-    Callback=function(state)
-        UsersESPEnabled = state
-        if state then createUsersESP() else removeAllESP("Users") end
-        showNotification("Users ESP", state and "Enabled" or "Disabled")
-    end
-})
-
--- === MISC TAB ===
-local miscTab = Window:Tab({Title="Misc",Icon="rbxassetid://4483345998"})
-
-miscTab:Slider({
-    Title="WalkSpeed",
-    Description="Adjust your walking speed",
-    Default=16,
-    Min=16,
-    Max=200,
-    Rounding=0,
-    Callback=function(value) WalkSpeedValue=value; SpeedEnabled=true; showNotification("WalkSpeed","Set to "..value) end
-})
-
-miscTab:Slider({
-    Title="JumpPower",
-    Description="Adjust your jump power",
-    Default=50,
-    Min=50,
-    Max=200,
-    Rounding=0,
-    Callback=function(value) JumpPowerValue=value; SpeedEnabled=true; showNotification("JumpPower","Set to "..value) end
-})
-
-miscTab:Button({
-    Title="Rejoin",
-    Description="Rejoin current server",
-    Callback=function() TeleportService:TeleportToPlaceInstance(game.PlaceId, game.JobId, LocalPlayer); showNotification("Rejoin","Attempting to rejoin...") end
-})
-
-miscTab:Button({
-    Title="Server Hop",
-    Description="Join a different server",
-    Callback=function()
-        local Servers = {}
-        local Success, Response = pcall(function()
-            return game:HttpGet("https://games.roblox.com/v1/games/"..game.PlaceId.."/servers/Public?sortOrder=Asc&limit=100")
         end)
-        if Success then
-            local Data = HttpService:JSONDecode(Response)
-            for _, server in pairs(Data.data) do
-                if server.playing<server.maxPlayers and server.id~=game.JobId then table.insert(Servers,server.id) end
-            end
-            if #Servers>0 then
-                TeleportService:TeleportToPlaceInstance(game.PlaceId,Servers[math.random(#Servers)],LocalPlayer)
-                showNotification("Server Hop","Hopping...")
-            else showNotification("Server Hop","No available servers found.") end
-        else showNotification("Server Hop
-        else
-            showNotification("Server Hop","No available servers found.")
-        end
-    end
-})
+    elseif AntiVoidPart then AntiVoidPart:Destroy() AntiVoidPart=nil end
+end})
+mainTab:Toggle({Title="AntiRagdoll",Default=false,Callback=function(s) AntiRagdollEnabled=s end})
+mainTab:Toggle({Title="SpinBot",Default=false,Callback=function(s) SpinBotEnabled=s end})
 
-miscTab:Button({
-    Title = "Copy Discord",
-    Description = "Copies Discord invite link",
-    Callback = function()
-        setclipboard("https://discord.gg/merquryhub")
-        showNotification("Discord","Copied invite link to clipboard!",5)
-    end
-})
+-- ESP
+local function createPlayerESP(p)
+    if not p.Character or not p.Character:FindFirstChild("HumanoidRootPart") then return end
+    if ESPConnections[p.Name] then return end
+    local esp=Instance.new("BoxHandleAdornment")
+    esp.Size=Vector3.new(4,6,1); esp.Color3=Color3.fromRGB(0,162,255)
+    esp.Transparency=0.7; esp.AlwaysOnTop=true
+    esp.Adornee=p.Character.HumanoidRootPart; esp.Parent=p.Character.HumanoidRootPart
+    ESPConnections[p.Name]=esp
+end
+local function removeESP() for _,e in pairs(ESPConnections) do e:Destroy() end ESPConnections={} end
 
--- === LOOP HANDLERS ===
+visualTab:Toggle({Title="Players ESP",Default=false,Callback=function(s) PlayersESPEnabled=s if not s then removeESP() end end})
+visualTab:Toggle({Title="Users ESP",Default=false,Callback=function(s) UsersESPEnabled=s if not s then removeESP() end end})
+
+-- Sliders
+miscTab:Slider({Title="WalkSpeed",Default=16,Min=16,Max=200,Callback=function(v) WalkSpeedValue=v SpeedEnabled=true end})
+miscTab:Slider({Title="JumpPower",Default=50,Min=50,Max=200,Callback=function(v) JumpPowerValue=v SpeedEnabled=true end})
+miscTab:Button({Title="Rejoin",Callback=function() TeleportService:TeleportToPlaceInstance(game.PlaceId,game.JobId,LocalPlayer) end})
+miscTab:Button({Title="Server Hop",Callback=function()
+    local s=HttpService:JSONDecode(game:HttpGet("https://games.roblox.com/v1/games/"..game.PlaceId.."/servers/Public?sortOrder=Asc&limit=100"))
+    for _,v in pairs(s.data) do if v.playing<v.maxPlayers and v.id~=game.JobId then TeleportService:TeleportToPlaceInstance(game.PlaceId,v.id,LocalPlayer) break end end
+end})
+
+-- Loops
 RunService.Heartbeat:Connect(function()
-    if SpeedEnabled and Character and Humanoid then
-        Humanoid.WalkSpeed = WalkSpeedValue
-        Humanoid.JumpPower = JumpPowerValue
-    end
-
-    -- Auto Slap
-    if AutoSlapEnabled and tick() - LastSlapTime >= SlapSpeed then
-        LastSlapTime = tick()
-        for _, player in pairs(Players:GetPlayers()) do
-            if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-                local dist = (player.Character.HumanoidRootPart.Position - Character.HumanoidRootPart.Position).magnitude
-                if dist < 25 then
-                    local tool = Character:FindFirstChildOfClass("Tool")
-                    if tool and table.find(SchlapTools, tool.Name) then
-                        tool:Activate()
-                    end
+    if SpeedEnabled then Humanoid.WalkSpeed=WalkSpeedValue Humanoid.JumpPower=JumpPowerValue end
+    if AutoSlapEnabled and tick()-LastSlapTime>=SlapSpeed then
+        LastSlapTime=tick()
+        for _,p in pairs(Players:GetPlayers()) do
+            if p~=LocalPlayer and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
+                if (p.Character.HumanoidRootPart.Position-Character.HumanoidRootPart.Position).Magnitude<25 then
+                    local tool=Character:FindFirstChildOfClass("Tool")
+                    if tool and table.find(SchlapTools,tool.Name) then tool:Activate() end
                 end
             end
         end
     end
-
-    -- Auto Slap Aura (teleporting between players)
-    if AutoSlapAuraEnabled and tick() - LastAuraTime >= AuraSwitchDelay then
-        LastAuraTime = tick()
-        local allPlayers = Players:GetPlayers()
-        if #allPlayers > 1 then
-            AuraTargetIndex = AuraTargetIndex + 1
-            if AuraTargetIndex > #allPlayers then AuraTargetIndex = 1 end
-            local target = allPlayers[AuraTargetIndex]
-            if target and target ~= LocalPlayer and target.Character and target.Character:FindFirstChild("HumanoidRootPart") then
-                if Character and Character:FindFirstChild("HumanoidRootPart") then
-                    Character.HumanoidRootPart.CFrame = target.Character.HumanoidRootPart.CFrame * CFrame.new(0,0,2)
-                    local tool = Character:FindFirstChildOfClass("Tool")
-                    if tool and table.find(SchlapTools, tool.Name) then
-                        tool:Activate()
-                    end
-                end
-            end
+    if AutoSlapAuraEnabled and tick()-LastAuraTime>=AuraSwitchDelay then
+        LastAuraTime=tick()
+        local players=Players:GetPlayers()
+        AuraTargetIndex=AuraTargetIndex%(#players)+1
+        local target=players[AuraTargetIndex]
+        if target and target~=LocalPlayer and target.Character and target.Character:FindFirstChild("HumanoidRootPart") then
+            Character.HumanoidRootPart.CFrame=target.Character.HumanoidRootPart.CFrame*CFrame.new(0,0,2)
+            local tool=Character:FindFirstChildOfClass("Tool")
+            if tool and table.find(SchlapTools,tool.Name) then tool:Activate() end
         end
     end
-
-    -- AntiRagdoll
-    if AntiRagdollEnabled and Character then
-        for _,v in pairs(Character:GetChildren()) do
-            if v:IsA("BodyVelocity") or v:IsA("BodyGyro") then
-                v:Destroy()
-            end
-        end
-    end
-
-    -- ESP
-    if PlayersESPEnabled then
-        for _, player in pairs(Players:GetPlayers()) do
-            if player ~= LocalPlayer then createPlayerESP(player) end
-        end
-    end
-    if UsersESPEnabled then
-        createUsersESP()
-    end
+    if AntiRagdollEnabled then for _,v in pairs(Character:GetChildren()) do if v:IsA("BodyGyro") or v:IsA("BodyVelocity") then v:Destroy() end end end
+    if PlayersESPEnabled then for _,p in pairs(Players:GetPlayers()) do if p~=LocalPlayer then createPlayerESP(p) end end end
 end)
 
--- SpinBot
 RunService.RenderStepped:Connect(function()
-    if SpinBotEnabled and Character and Character:FindFirstChild("HumanoidRootPart") then
-        Character.HumanoidRootPart.CFrame = Character.HumanoidRootPart.CFrame * CFrame.Angles(0,math.rad(15),0)
+    if SpinBotEnabled and Character:FindFirstChild("HumanoidRootPart") then
+        Character.HumanoidRootPart.CFrame=Character.HumanoidRootPart.CFrame*CFrame.Angles(0,math.rad(15),0)
     end
 end)
 
--- Character respawn handling
-LocalPlayer.CharacterAdded:Connect(function(char)
-    Character = char
-    Humanoid = char:WaitForChild("Humanoid")
-end)
-
--- UI init
+LocalPlayer.CharacterAdded:Connect(function(c) Character=c Humanoid=c:WaitForChild("Humanoid") end)
 Window:SelectTab(1)
-showNotification("Merqury Hub","Loaded successfully!",5)
