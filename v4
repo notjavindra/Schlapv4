@@ -1,4 +1,4 @@
--- // Schlap | Merqury Hub Full Script //
+-- // Schlap | Merqury Hub Full Script (Updated) //
 
 -- Load WindUI
 local Version = "1.6.31"
@@ -21,9 +21,9 @@ local Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
 local Humanoid = Character:WaitForChild("Humanoid")
 
 -- Vars
-local WalkSpeedValue, JumpPowerValue = 16, 50
+local WalkSpeedValue = 16
 local SpeedEnabled, AutoSlapEnabled, AutoSlapAuraEnabled, SpinBotEnabled = false, false, false, false
-local AntiVoidEnabled, AntiRagdollEnabled, PlayersESPEnabled, UsersESPEnabled = false, false, false, false
+local AntiVoidEnabled, AntiRagdollEnabled, PlayersESPEnabled, UsersESPEnabled, InvisibleEnabled = false, false, false, false, false
 local AntiVoidPart
 local SlapSpeed, LastSlapTime = 0.3, 0
 local LastTeleportTime, TeleportDebounce = 0, 1
@@ -40,7 +40,7 @@ local Window = WindUI:CreateWindow({
     Author = "Merqury Hub",
     Folder = "SchlapConfig",
     Size = UDim2.fromOffset(580, 460),
-    KeySystem = {Key = "", Note = "The key is nothing", URL = "https://example.com", SaveKey = true},
+    KeySystem = {Key = "MERQURYHUB_1.7", Note = "Get the key in the discord server!", URL = "https://discord.gg/h4zF3hnBBq", SaveKey = true},
     Transparent = true,
     Theme = "Dark",
     SideBarWidth = 170
@@ -101,6 +101,18 @@ mainTab:Toggle({
     Title = "AntiRagdoll",
     Default = false,
     Callback = function(s) AntiRagdollEnabled = s end
+})
+
+-- Invisible toggle
+mainTab:Toggle({
+    Title = "Invisible (⚠️)",
+    Default = false,
+    Callback = function(s)
+        InvisibleEnabled = s
+        if InvisibleEnabled and Character and Character:FindFirstChild("HumanoidRootPart") then
+            Character.HumanoidRootPart.CFrame = Character.HumanoidRootPart.CFrame + Vector3.new(0,500,0)
+        end
+    end
 })
 
 -- === Visual Tab ===
@@ -171,14 +183,8 @@ local miscTab = Window:Tab({Title="Misc",Icon="rbxassetid://4483345998"})
 
 miscTab:Slider({
     Title="WalkSpeed",
-    Default=16,Min=16,Max=200,
+    Default=16, Min=16, Max=200,
     Callback=function(v) WalkSpeedValue=v; SpeedEnabled=true end
-})
-
-miscTab:Slider({
-    Title="JumpPower",
-    Default=50,Min=50,Max=200,
-    Callback=function(v) JumpPowerValue=v; SpeedEnabled=true end
 })
 
 miscTab:Button({
@@ -216,10 +222,14 @@ miscTab:Button({
 
 -- === Loops ===
 RunService.Heartbeat:Connect(function()
+    -- WalkSpeed 50% chance
     if SpeedEnabled and Humanoid then
-        Humanoid.WalkSpeed=WalkSpeedValue
-        Humanoid.JumpPower=JumpPowerValue
+        if math.random() < 0.5 then
+            Humanoid.WalkSpeed = WalkSpeedValue
+        end
     end
+
+    -- AutoSlap
     if AutoSlapEnabled and tick()-LastSlapTime>=SlapSpeed then
         LastSlapTime=tick()
         for _,p in pairs(Players:GetPlayers()) do
@@ -231,6 +241,8 @@ RunService.Heartbeat:Connect(function()
             end
         end
     end
+
+    -- AutoSlap Aura
     if AutoSlapAuraEnabled and tick()-LastAuraTime>=AuraSwitchDelay then
         LastAuraTime=tick()
         local players=Players:GetPlayers()
@@ -245,24 +257,59 @@ RunService.Heartbeat:Connect(function()
             end
         end
     end
+
+    -- AntiRagdoll
     if AntiRagdollEnabled and Character then
         for _,v in pairs(Character:GetChildren()) do
             if v:IsA("BodyVelocity") or v:IsA("BodyGyro") then v:Destroy() end
         end
     end
-    if PlayersESPEnabled then for _,p in pairs(Players:GetPlayers()) do if p~=LocalPlayer then createPlayerESP(p) end end end
+
+    -- Invisible tool action teleport
+    if InvisibleEnabled and Character and Character:FindFirstChild("HumanoidRootPart") then
+        local tool = Character:FindFirstChildOfClass("Tool")
+        if tool then
+            tool.Activated:Connect(function()
+                local hrp = Character.HumanoidRootPart
+                hrp.CFrame = hrp.CFrame - Vector3.new(0,50,0)
+                wait(0.05)
+                hrp.CFrame = hrp.CFrame + Vector3.new(0,50,0)
+            end)
+        end
+    end
+
+    -- ESP updates
+    if PlayersESPEnabled then
+        for _,p in pairs(Players:GetPlayers()) do
+            if p~=LocalPlayer then createPlayerESP(p) end
+        end
+    end
     if UsersESPEnabled then createUsersESP() end
 end)
 
+-- SpinBot
 RunService.RenderStepped:Connect(function()
     if SpinBotEnabled and Character and Character:FindFirstChild("HumanoidRootPart") then
         Character.HumanoidRootPart.CFrame=Character.HumanoidRootPart.CFrame*CFrame.Angles(0,math.rad(15),0)
     end
 end)
 
+-- Character added
 LocalPlayer.CharacterAdded:Connect(function(char)
     Character=char
     Humanoid=char:WaitForChild("Humanoid")
+    if InvisibleEnabled and char:FindFirstChild("HumanoidRootPart") then
+        char.HumanoidRootPart.CFrame = char.HumanoidRootPart.CFrame + Vector3.new(0,500,0)
+    end
+end)
+
+-- Player added ESP
+Players.PlayerAdded:Connect(function(plr)
+    plr.CharacterAdded:Connect(function()
+        if PlayersESPEnabled then
+            createPlayerESP(plr)
+        end
+    end)
 end)
 
 Window:SelectTab(1)
